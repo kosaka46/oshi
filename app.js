@@ -142,3 +142,25 @@ function renderTasks() {
   const done = state.tasks.filter(t => t.done).length;
   elTaskStat.textContent = `${done}/${state.tasks.length} 完了`;
 }
+
+// === 推し写真の設定 ===
+const imgInput = document.getElementById("imgInput");
+const btnChangeImg = document.getElementById("btnChangeImg");
+const oshiImg = document.getElementById("oshiImg");
+
+btnChangeImg.addEventListener("click", () => imgInput.click());
+
+imgInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    oshiImg.src = reader.result;
+    state.img = reader.result;
+    save(state);
+  };
+  reader.readAsDataURL(file);
+});
+
+if (state.img) oshiImg.src = state.img;
+

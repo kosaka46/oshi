@@ -8,7 +8,15 @@
 </head>
 <body data-theme="pink">
   <div class="container">
-    <!-- Header -->
+
+    <!-- 🌸 推し写真エリア（ここが新しく追加された部分！） -->
+    <div class="oshi-photo">
+      <img id="oshiImg" src="default.jpg" alt="推し写真" />
+      <input type="file" id="imgInput" accept="image/*" hidden />
+      <button class="change-photo-btn" id="btnChangeImg">📷 写真を変更</button>
+    </div>
+
+    <!-- 🩷 Header -->
     <header class="header">
       <div class="oshicon" id="oshicon">◯</div>
       <div class="head-text">
@@ -16,22 +24,22 @@
         <div class="message" id="message">◯◯ちゃんが見てるよ👀</div>
       </div>
       <div class="theme-dots">
-        <button class="dot dot-pink"   data-theme="pink"   title="ピンク"></button>
-        <button class="dot dot-sky"    data-theme="sky"    title="スカイ"></button>
-        <button class="dot dot-violet" data-theme="violet" title="バイオレット"></button>
-        <button class="dot dot-emerald"data-theme="emerald"title="エメラルド"></button>
+        <button class="dot dot-pink"   data-theme="pink"></button>
+        <button class="dot dot-sky"    data-theme="sky"></button>
+        <button class="dot dot-violet" data-theme="violet"></button>
+        <button class="dot dot-emerald"data-theme="emerald"></button>
       </div>
     </header>
 
-    <!-- Savings Card -->
+    <!-- 💰 貯金カード -->
     <section class="card">
       <h3 class="section-title">貯金の進捗</h3>
       <div class="ring-wrap theme-bg">
-        <svg id="ring" class="ring" width="160" height="160" viewBox="0 0 160 160" aria-label="progress ring">
+        <svg id="ring" class="ring" width="160" height="160" viewBox="0 0 160 160">
           <circle cx="80" cy="80" r="70" class="ring-bg"></circle>
           <circle cx="80" cy="80" r="70" class="ring-fg" id="ringFg"></circle>
           <text x="80" y="74" text-anchor="middle" class="ring-main" id="balanceText">0円</text>
-          <text x="80" y="98" text-anchor="middle" class="ring-sub"  id="goalText">/ 10,000円</text>
+          <text x="80" y="98" text-anchor="middle" class="ring-sub" id="goalText">/ 10,000円</text>
         </svg>
       </div>
       <div class="grid2">
@@ -40,7 +48,7 @@
       </div>
     </section>
 
-    <!-- Tasks Card -->
+    <!-- ✅ タスクカード -->
     <section class="card">
       <div class="row-between">
         <h3 class="section-title">今日のタスク</h3>
@@ -50,7 +58,7 @@
       <button class="btn btn-accent full" id="btnAddTask">タスクを追加</button>
     </section>
 
-    <!-- Footer nav (dummy) -->
+    <!-- 🌈 下のナビゲーション -->
     <nav class="dock">
       <button class="dock-item">🏠<span>ホーム</span></button>
       <button class="dock-item">💰<span>貯金</span></button>
@@ -61,6 +69,7 @@
     <div class="ver">v0.1 – ローカル保存（ブラウザのみ）</div>
   </div>
 
+  <!-- 🔧 JS読み込み -->
   <script src="app.js"></script>
 </body>
 </html>

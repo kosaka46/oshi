@@ -1,9 +1,9 @@
 // ========================
-// 推し活ダッシュボード v3.0
-// - 旧キーから移行（v1/v2 -> v3）
+// 推し活ダッシュボード v3.1 安定版
 // - 写真アップロード（リサイズ保存）
 // - 円形ゲージ（dashoffset方式）
-// - ローカル保存の堅牢化
+// - ローカル保存（旧v1/v2移行）
+// - 例外ガード強化
 // ========================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -25,78 +25,58 @@ document.addEventListener("DOMContentLoaded", () => {
     img: null,
   };
 
-  function deepMerge(base, patch) {
-    const out = Array.isArray(base) ? [...base] : { ...base };
-    for (const k of Object.keys(patch || {})) {
-      if (patch[k] && typeof patch[k] === "object" && !Array.isArray(patch[k])) {
-        out[k] = deepMerge(base[k] || {}, patch[k]);
-      } else {
-        out[k] = patch[k];
-      }
+  const safeParse = (raw, fb) => { try { return raw ? JSON.parse(raw) : fb; } catch { return fb; } };
+  const loadRaw = (k) => safeParse(localStorage.getItem(k), null);
+
+  const deepMerge = (a, b) => {
+    const out = Array.isArray(a) ? [...a] : { ...a };
+    for (const k in (b || {})) {
+      const v = b[k];
+      out[k] = (v && typeof v === "object" && !Array.isArray(v)) ? deepMerge(a?.[k] || {}, v) : v;
     }
     return out;
+  };
+
+  function save(s) {
+    try { localStorage.setItem(KEY, JSON.stringify(s)); }
+    catch (e) { console.error(e); alert("保存に失敗（容量超過かも）。写真サイズを小さくしてね。"); }
   }
 
-  function loadRaw(key) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function migrateIfNeeded() {
-    // 1) v3 があればそれを使う
+  function migrate() {
     const v3 = loadRaw(KEY);
     if (v3) return deepMerge(defaultState, v3);
-
-    // 2) 古いキーがあればマージして v3 に保存
     for (const k of OLD_KEYS) {
       const old = loadRaw(k);
-      if (old) {
-        const merged = deepMerge(defaultState, old);
-        save(merged);
-        return merged;
-      }
+      if (old) { const m = deepMerge(defaultState, old); save(m); return m; }
     }
-    // 3) 何もなければデフォ
     save(defaultState);
     return defaultState;
   }
 
-  function save(s) {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(s));
-    } catch (e) {
-      console.error(e);
-      alert("保存に失敗しました（容量オーバーかも）。写真サイズを小さくしてね。");
-    }
-  }
-
-  let state = migrateIfNeeded();
+  let state = migrate();
 
   // ---- Elements ----
-  const elToday   = document.getElementById("today");
-  const elMessage = document.getElementById("message");
-  const elOshicon = document.getElementById("oshicon");
-  const elTaskList= document.getElementById("taskList");
-  const elTaskStat= document.getElementById("taskStat");
-  const elRingFg  = document.getElementById("ringFg");
-  const elBalance = document.getElementById("balanceText");
-  const elGoal    = document.getElementById("goalText");
-  const btnDeposit= document.getElementById("btnDeposit");
-  const btnEdit   = document.getElementById("btnEdit");
-  const btnAddTask= document.getElementById("btnAddTask");
+  const $ = (id) => document.getElementById(id);
+  const elToday   = $("today");
+  const elMessage = $("message");
+  const elOshicon = $("oshicon");
+  const elTaskList= $("taskList");
+  const elTaskStat= $("taskStat");
+  const elRingFg  = $("ringFg");
+  const elBalance = $("balanceText");
+  const elGoal    = $("goalText");
+  const btnDeposit= $("btnDeposit");
+  const btnEdit   = $("btnEdit");
+  const btnAddTask= $("btnAddTask");
 
-  const imgInput     = document.getElementById("imgInput");
-  const btnChangeImg = document.getElementById("btnChangeImg");
-  const oshiImg      = document.getElementById("oshiImg");
-  const photoArea    = document.getElementById("photoArea");
+  const imgInput     = $("imgInput");
+  const btnChangeImg = $("btnChangeImg");
+  const oshiImg      = $("oshiImg");
+  const photoArea    = $("photoArea");
 
   // ---- Init ----
-  document.body.dataset.theme = state.theme || "pink";
-  elToday.textContent = new Date().toLocaleDateString();
+  try { document.body.dataset.theme = state.theme || "pink"; } catch {}
+  try { if (elToday) elToday.textContent = new Date().toLocaleDateString(); } catch {}
 
   const placeholder =
     "data:image/svg+xml;charset=UTF-8," +
@@ -108,71 +88,73 @@ document.addEventListener("DOMContentLoaded", () => {
       <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
         font-family='Arial' font-size='48' fill='#e74694'>推し写真を追加してね 📷</text>
     </svg>`);
-
-  oshiImg.src = state.img || placeholder;
+  try { if (oshiImg) oshiImg.src = state.img || placeholder; } catch {}
 
   // ---- Renderers ----
   function renderHeader() {
-    elMessage.textContent = state.message || defaultState.message;
-    elOshicon.textContent = (state.oshiName || defaultState.oshiName).charAt(0);
+    try {
+      if (elMessage) elMessage.textContent = state.message || defaultState.message;
+      if (elOshicon) elOshicon.textContent = (state.oshiName || defaultState.oshiName).charAt(0);
+    } catch (e) { console.error(e); }
   }
 
   function renderRing() {
-    const r = 70, c = 2 * Math.PI * r;
-    const goal = Math.max(1, Number(state.goal) || 1);
-    const pct  = Math.max(0, Math.min(1, Number(state.balance) / goal));
-
-    elRingFg.style.strokeDasharray  = String(c);
-    elRingFg.style.strokeDashoffset = String(c * (1 - pct));
-
-    elBalance.textContent = `${Number(state.balance).toLocaleString()}円`;
-    elGoal.textContent    = `/ ${goal.toLocaleString()}円`;
+    try {
+      if (!elRingFg || !elBalance || !elGoal) return;
+      const r = 70, c = 2 * Math.PI * r;
+      const goal = Math.max(1, Number(state.goal) || 1);
+      const pct  = Math.max(0, Math.min(1, Number(state.balance) / goal));
+      elRingFg.style.strokeDasharray  = String(c);
+      elRingFg.style.strokeDashoffset = String(c * (1 - pct));
+      elBalance.textContent = `${Number(state.balance).toLocaleString()}円`;
+      elGoal.textContent    = `/ ${goal.toLocaleString()}円`;
+    } catch (e) { console.error(e); }
   }
 
   function renderTasks() {
-    elTaskList.innerHTML = "";
-    const tasks = Array.isArray(state.tasks) ? state.tasks : [];
-    tasks.forEach(t => {
-      const li = document.createElement("li");
+    try {
+      if (!elTaskList || !elTaskStat) return;
+      elTaskList.innerHTML = "";
+      const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+      tasks.forEach(t => {
+        const li = document.createElement("li");
 
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = !!t.done;
-      cb.addEventListener("change", () => {
-        t.done = !t.done;
-        save(state);
-        renderTasks();
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!t.done;
+        cb.addEventListener("change", () => {
+          t.done = !t.done;
+          save(state);
+          renderTasks();
+        });
+
+        const span = document.createElement("span");
+        span.className = "task-title" + (t.done ? " task-done" : "");
+        span.textContent = t.title || "";
+
+        const del = document.createElement("button");
+        del.className = "task-del";
+        del.textContent = "削除";
+        del.addEventListener("click", () => {
+          state.tasks = tasks.filter(x => x !== t);
+          save(state);
+          renderTasks();
+        });
+
+        li.append(cb, span, del);
+        elTaskList.appendChild(li);
       });
-
-      const span = document.createElement("span");
-      span.className = "task-title" + (t.done ? " task-done" : "");
-      span.textContent = t.title || "";
-
-      const del = document.createElement("button");
-      del.className = "task-del";
-      del.textContent = "削除";
-      del.addEventListener("click", () => {
-        state.tasks = tasks.filter(x => x !== t);
-        save(state);
-        renderTasks();
-      });
-
-      li.append(cb, span, del);
-      elTaskList.appendChild(li);
-    });
-
-    const done = tasks.filter(t => t.done).length;
-    elTaskStat.textContent = `${done}/${tasks.length} 完了`;
+      const done = tasks.filter(t => t.done).length;
+      elTaskStat.textContent = `${done}/${tasks.length} 完了`;
+    } catch (e) { console.error(e); }
   }
 
-  // 初回描画
-  renderHeader();
-  renderRing();
-  renderTasks();
+  // 初回描画（エラーが出ても他は続行）
+  renderHeader(); renderRing(); renderTasks();
 
   // ---- Theme ----
-  document.querySelectorAll(".dot").forEach(btn => {
-    btn.addEventListener("click", () => {
+  document.querySelectorAll(".dot")?.forEach(btn => {
+    btn?.addEventListener("click", () => {
       const theme = btn.dataset.theme;
       document.body.dataset.theme = theme;
       state.theme = theme;
@@ -181,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ---- Savings ----
-  btnDeposit.addEventListener("click", () => {
+  btnDeposit?.addEventListener("click", () => {
     const val = prompt("いくら貯金する？（円）", "500");
     if (val === null) return;
     const add = Math.max(0, Math.floor(Number(val)) || 0);
@@ -190,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderRing();
   });
 
-  btnEdit.addEventListener("click", () => {
+  btnEdit?.addEventListener("click", () => {
     const name = prompt("推しの呼び名", state.oshiName ?? "");
     if (name !== null && name.trim() !== "") state.oshiName = name.trim();
 
@@ -198,21 +180,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (msg !== null && msg.trim() !== "") state.message = msg.trim();
 
     const g = prompt("目標金額（円）", String(state.goal ?? 10000));
-    if (g !== null) {
-      const newGoal = Math.max(1, Math.floor(Number(g) || state.goal || 10000));
-      state.goal = newGoal;
-    }
+    if (g !== null) state.goal = Math.max(1, Math.floor(Number(g) || state.goal || 10000));
+
     save(state);
     renderHeader();
     renderRing();
   });
 
   // ---- Tasks ----
-  function uuid() {
-    return (crypto?.randomUUID?.() ?? ("id-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
-  }
+  const uuid = () => (crypto?.randomUUID?.() ?? ("id-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
 
-  btnAddTask.addEventListener("click", () => {
+  btnAddTask?.addEventListener("click", () => {
     const title = prompt("新しいタスク内容は？", "推し配信をチェック");
     if (!title) return;
     if (!Array.isArray(state.tasks)) state.tasks = [];
@@ -221,17 +199,17 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTasks();
   });
 
-  // ---- Photo (label/area click OK) ----
-  function openPicker(){ imgInput.click(); }
-  btnChangeImg.addEventListener("click", openPicker);
-  photoArea.addEventListener("click", openPicker);
+  // ---- Photo ----
+  function openPicker(){ imgInput?.click(); }
+  btnChangeImg?.addEventListener("click", openPicker);
+  photoArea?.addEventListener("click", openPicker);
 
-  imgInput.addEventListener("change", async (e) => {
+  imgInput?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const dataUrl = await resizeImageToDataURL(file, 1200, 0.85);
-      oshiImg.src = dataUrl;
+      if (oshiImg) oshiImg.src = dataUrl;
       state.img = dataUrl;
       save(state);
     } catch (err) {
@@ -263,4 +241,10 @@ document.addEventListener("DOMContentLoaded", () => {
       fr.readAsDataURL(file);
     });
   }
+
+  // ---- 最後の保険：未捕捉エラーを出しても動作継続 ----
+  window.addEventListener("error", (e) => {
+    console.error("Runtime error:", e?.message, e?.error);
+    // ここで止まらず他の機能が動くようにする
+  });
 });

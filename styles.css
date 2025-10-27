@@ -160,6 +160,11 @@ html, body {
   transform-origin: 50% 50%;
   stroke-dasharray: 0 1000;
 }
+/* 進捗アニメーション（お好み） */
+.ring-fg {
+  transition: stroke-dashoffset .45s ease;
+}
+
 .ring-main {
   font-size: 14px;
   font-weight: 700;
@@ -169,6 +174,7 @@ html, body {
   font-size: 12px;
   fill: #555;
 }
+
 
 /* ボタン */
 .btn {

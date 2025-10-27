@@ -9,13 +9,14 @@
 <body data-theme="pink">
   <div class="container">
 
-    <!-- 推し写真 -->
-    <div class="oshi-photo">
-      <!-- 初期画像は埋め込みプレースホルダー（default.jpg不要） -->
-      <img id="oshiImg" alt="推し写真" />
-      <input type="file" id="imgInput" accept="image/*" hidden />
-      <button class="change-photo-btn" id="btnChangeImg">📷 写真を変更</button>
-    </div>
+    <!-- 推し写真（置き換え） -->
+<div class="oshi-photo" id="photoArea">
+  <img id="oshiImg" alt="推し写真" />
+  <!-- input は hidden のままでOK（label経由で開く） -->
+  <input type="file" id="imgInput" accept="image/*" hidden />
+  <!-- ボタン → label に変更（for で input を開く） -->
+  <label class="change-photo-btn" for="imgInput" id="btnChangeImg">📷 写真を変更</label>
+</div>
 
     <!-- ヘッダー -->
     <header class="header">

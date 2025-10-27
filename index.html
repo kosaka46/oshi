@@ -9,14 +9,15 @@
 <body data-theme="pink">
   <div class="container">
 
-    <!-- 🌸 推し写真エリア（ここが新しく追加された部分！） -->
+    <!-- 推し写真 -->
     <div class="oshi-photo">
-      <img id="oshiImg" src="default.jpg" alt="推し写真" />
+      <!-- 初期画像は埋め込みプレースホルダー（default.jpg不要） -->
+      <img id="oshiImg" alt="推し写真" />
       <input type="file" id="imgInput" accept="image/*" hidden />
       <button class="change-photo-btn" id="btnChangeImg">📷 写真を変更</button>
     </div>
 
-    <!-- 🩷 Header -->
+    <!-- ヘッダー -->
     <header class="header">
       <div class="oshicon" id="oshicon">◯</div>
       <div class="head-text">
@@ -31,7 +32,7 @@
       </div>
     </header>
 
-    <!-- 💰 貯金カード -->
+    <!-- 貯金カード -->
     <section class="card">
       <h3 class="section-title">貯金の進捗</h3>
       <div class="ring-wrap theme-bg">
@@ -48,7 +49,7 @@
       </div>
     </section>
 
-    <!-- ✅ タスクカード -->
+    <!-- タスクカード -->
     <section class="card">
       <div class="row-between">
         <h3 class="section-title">今日のタスク</h3>
@@ -58,7 +59,7 @@
       <button class="btn btn-accent full" id="btnAddTask">タスクを追加</button>
     </section>
 
-    <!-- 🌈 下のナビゲーション -->
+    <!-- ドック -->
     <nav class="dock">
       <button class="dock-item">🏠<span>ホーム</span></button>
       <button class="dock-item">💰<span>貯金</span></button>
@@ -66,10 +67,9 @@
       <button class="dock-item">⚙️<span>設定</span></button>
     </nav>
 
-    <div class="ver">v0.1 – ローカル保存（ブラウザのみ）</div>
+    <div class="ver">v0.2 – 写真リサイズ保存対応</div>
   </div>
 
-  <!-- 🔧 JS読み込み -->
   <script src="app.js"></script>
 </body>
 </html>

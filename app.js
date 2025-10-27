@@ -1,13 +1,16 @@
 // ========================
-// 推し活ダッシュボード v2.1
+// 推し活ダッシュボード v3.0
+// - 旧キーから移行（v1/v2 -> v3）
 // - 写真アップロード（リサイズ保存）
 // - 円形ゲージ（dashoffset方式）
-// - ローカル保存
+// - ローカル保存の堅牢化
 // ========================
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ---- Storage helpers ----
-  const KEY = "oshiDash.miniState.v2";
+  // ---- Storage (with migration) ----
+  const KEY = "oshiDash.state.v3";
+  const OLD_KEYS = ["oshiDash.miniState.v2", "oshiDash.miniState.v1"];
+
   const defaultState = {
     oshiName: "◯◯",
     message: "◯◯ちゃんが見てるよ👀",
@@ -19,27 +22,59 @@ document.addEventListener("DOMContentLoaded", () => {
       { id: "t2", title: "SNSで推しツイートする", done: false },
       { id: "t3", title: "ダンス練習 30 分", done: false },
     ],
-    img: null, // base64
+    img: null,
   };
 
-  function load() {
+  function deepMerge(base, patch) {
+    const out = Array.isArray(base) ? [...base] : { ...base };
+    for (const k of Object.keys(patch || {})) {
+      if (patch[k] && typeof patch[k] === "object" && !Array.isArray(patch[k])) {
+        out[k] = deepMerge(base[k] || {}, patch[k]);
+      } else {
+        out[k] = patch[k];
+      }
+    }
+    return out;
+  }
+
+  function loadRaw(key) {
     try {
-      const raw = localStorage.getItem(KEY);
-      return raw ? JSON.parse(raw) : defaultState;
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
     } catch {
-      return defaultState;
+      return null;
     }
   }
+
+  function migrateIfNeeded() {
+    // 1) v3 があればそれを使う
+    const v3 = loadRaw(KEY);
+    if (v3) return deepMerge(defaultState, v3);
+
+    // 2) 古いキーがあればマージして v3 に保存
+    for (const k of OLD_KEYS) {
+      const old = loadRaw(k);
+      if (old) {
+        const merged = deepMerge(defaultState, old);
+        save(merged);
+        return merged;
+      }
+    }
+    // 3) 何もなければデフォ
+    save(defaultState);
+    return defaultState;
+  }
+
   function save(s) {
     try {
       localStorage.setItem(KEY, JSON.stringify(s));
     } catch (e) {
       console.error(e);
-      alert("保存に失敗しました（容量オーバーかも）。画像サイズを小さくしてね。");
+      alert("保存に失敗しました（容量オーバーかも）。写真サイズを小さくしてね。");
     }
   }
 
-  let state = load();
+  let state = migrateIfNeeded();
 
   // ---- Elements ----
   const elToday   = document.getElementById("today");
@@ -54,17 +89,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnEdit   = document.getElementById("btnEdit");
   const btnAddTask= document.getElementById("btnAddTask");
 
-  // photo
   const imgInput     = document.getElementById("imgInput");
   const btnChangeImg = document.getElementById("btnChangeImg");
   const oshiImg      = document.getElementById("oshiImg");
   const photoArea    = document.getElementById("photoArea");
 
-  // ---- Init basic header/theme ----
-  document.body.dataset.theme = state.theme;
+  // ---- Init ----
+  document.body.dataset.theme = state.theme || "pink";
   elToday.textContent = new Date().toLocaleDateString();
 
-  // ---- Placeholder image ----
   const placeholder =
     "data:image/svg+xml;charset=UTF-8," +
     encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'>
@@ -80,33 +113,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- Renderers ----
   function renderHeader() {
-    elMessage.textContent = state.message;
-    elOshicon.textContent = state.oshiName?.charAt(0) || "◯";
+    elMessage.textContent = state.message || defaultState.message;
+    elOshicon.textContent = (state.oshiName || defaultState.oshiName).charAt(0);
   }
 
   function renderRing() {
-    const r = 70;                 // <circle r="70"> と一致させる
-    const c = 2 * Math.PI * r;    // 円周長
+    const r = 70, c = 2 * Math.PI * r;
+    const goal = Math.max(1, Number(state.goal) || 1);
+    const pct  = Math.max(0, Math.min(1, Number(state.balance) / goal));
 
-    const goal = Math.max(1, state.goal || 1);
-    const pct  = Math.max(0, Math.min(1, state.balance / goal));
-
-    // dashoffset方式：残りをoffsetに
     elRingFg.style.strokeDasharray  = String(c);
     elRingFg.style.strokeDashoffset = String(c * (1 - pct));
 
-    elBalance.textContent = `${state.balance.toLocaleString()}円`;
+    elBalance.textContent = `${Number(state.balance).toLocaleString()}円`;
     elGoal.textContent    = `/ ${goal.toLocaleString()}円`;
   }
 
   function renderTasks() {
     elTaskList.innerHTML = "";
-    state.tasks.forEach(t => {
+    const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+    tasks.forEach(t => {
       const li = document.createElement("li");
 
       const cb = document.createElement("input");
       cb.type = "checkbox";
-      cb.checked = t.done;
+      cb.checked = !!t.done;
       cb.addEventListener("change", () => {
         t.done = !t.done;
         save(state);
@@ -115,13 +146,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const span = document.createElement("span");
       span.className = "task-title" + (t.done ? " task-done" : "");
-      span.textContent = t.title;
+      span.textContent = t.title || "";
 
       const del = document.createElement("button");
       del.className = "task-del";
       del.textContent = "削除";
       del.addEventListener("click", () => {
-        state.tasks = state.tasks.filter(x => x.id !== t.id);
+        state.tasks = tasks.filter(x => x !== t);
         save(state);
         renderTasks();
       });
@@ -130,16 +161,16 @@ document.addEventListener("DOMContentLoaded", () => {
       elTaskList.appendChild(li);
     });
 
-    const done = state.tasks.filter(t => t.done).length;
-    elTaskStat.textContent = `${done}/${state.tasks.length} 完了`;
+    const done = tasks.filter(t => t.done).length;
+    elTaskStat.textContent = `${done}/${tasks.length} 完了`;
   }
 
-  // ---- First render ----
+  // 初回描画
   renderHeader();
   renderRing();
   renderTasks();
 
-  // ---- Theme dots ----
+  // ---- Theme ----
   document.querySelectorAll(".dot").forEach(btn => {
     btn.addEventListener("click", () => {
       const theme = btn.dataset.theme;
@@ -149,48 +180,53 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ---- Actions: savings & edit ----
-  btnDeposit?.addEventListener("click", () => {
-    const yen = prompt("いくら貯金する？（円）", "500");
-    if (!yen) return;
-    const add = Math.max(0, Math.floor(Number(yen)) || 0);
-    state.balance += add;
+  // ---- Savings ----
+  btnDeposit.addEventListener("click", () => {
+    const val = prompt("いくら貯金する？（円）", "500");
+    if (val === null) return;
+    const add = Math.max(0, Math.floor(Number(val)) || 0);
+    state.balance = Math.max(0, Number(state.balance) + add);
     save(state);
     renderRing();
   });
 
-  btnEdit?.addEventListener("click", () => {
-    const name = prompt("推しの呼び名", state.oshiName);
-    if (name !== null) state.oshiName = name || state.oshiName;
+  btnEdit.addEventListener("click", () => {
+    const name = prompt("推しの呼び名", state.oshiName ?? "");
+    if (name !== null && name.trim() !== "") state.oshiName = name.trim();
 
-    const msg = prompt("メッセージ", state.message);
-    if (msg !== null) state.message = msg || state.message;
+    const msg = prompt("メッセージ", state.message ?? "");
+    if (msg !== null && msg.trim() !== "") state.message = msg.trim();
 
-    const g = prompt("目標金額（円）", String(state.goal));
-    if (g !== null) state.goal = Math.max(1, Math.floor(Number(g) || state.goal));
-
+    const g = prompt("目標金額（円）", String(state.goal ?? 10000));
+    if (g !== null) {
+      const newGoal = Math.max(1, Math.floor(Number(g) || state.goal || 10000));
+      state.goal = newGoal;
+    }
     save(state);
     renderHeader();
     renderRing();
   });
 
-  // ---- Actions: tasks ----
-  btnAddTask?.addEventListener("click", () => {
+  // ---- Tasks ----
+  function uuid() {
+    return (crypto?.randomUUID?.() ?? ("id-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
+  }
+
+  btnAddTask.addEventListener("click", () => {
     const title = prompt("新しいタスク内容は？", "推し配信をチェック");
     if (!title) return;
-    state.tasks.unshift({ id: crypto.randomUUID(), title, done: false });
+    if (!Array.isArray(state.tasks)) state.tasks = [];
+    state.tasks.unshift({ id: uuid(), title: title.trim(), done: false });
     save(state);
     renderTasks();
   });
 
-  // ---- Photo upload (works via label or area click) ----
-  function openPicker() {
-    if (imgInput) imgInput.click();
-  }
-  btnChangeImg?.addEventListener("click", openPicker);
-  photoArea?.addEventListener("click", openPicker);
+  // ---- Photo (label/area click OK) ----
+  function openPicker(){ imgInput.click(); }
+  btnChangeImg.addEventListener("click", openPicker);
+  photoArea.addEventListener("click", openPicker);
 
-  imgInput?.addEventListener("change", async (e) => {
+  imgInput.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -202,11 +238,10 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error(err);
       alert("画像の読み込みに失敗しました。別の画像で試してね。");
     } finally {
-      imgInput.value = ""; // 同じファイル再選択を許可
+      imgInput.value = "";
     }
   });
 
-  // 画像をリサイズしてDataURLにする（容量対策）
   function resizeImageToDataURL(file, maxSize = 1200, quality = 0.85) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -222,8 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        const out = canvas.toDataURL("image/jpeg", quality);
-        resolve(out);
+        resolve(canvas.toDataURL("image/jpeg", quality));
       };
       img.onerror = reject;
       fr.readAsDataURL(file);

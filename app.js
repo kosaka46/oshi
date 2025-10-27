@@ -1,12 +1,70 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // 既存の state/load/save/render… はそのままでOK（下は写真関連だけ）
+// ========================
+// 推し活ダッシュボード v2.1
+// - 写真アップロード（リサイズ保存）
+// - 円形ゲージ（dashoffset方式）
+// - ローカル保存
+// ========================
 
+document.addEventListener("DOMContentLoaded", () => {
+  // ---- Storage helpers ----
+  const KEY = "oshiDash.miniState.v2";
+  const defaultState = {
+    oshiName: "◯◯",
+    message: "◯◯ちゃんが見てるよ👀",
+    theme: "pink",
+    balance: 3500,
+    goal: 10000,
+    tasks: [
+      { id: "t1", title: "チケット抽選に応募する", done: true },
+      { id: "t2", title: "SNSで推しツイートする", done: false },
+      { id: "t3", title: "ダンス練習 30 分", done: false },
+    ],
+    img: null, // base64
+  };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : defaultState;
+    } catch {
+      return defaultState;
+    }
+  }
+  function save(s) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch (e) {
+      console.error(e);
+      alert("保存に失敗しました（容量オーバーかも）。画像サイズを小さくしてね。");
+    }
+  }
+
+  let state = load();
+
+  // ---- Elements ----
+  const elToday   = document.getElementById("today");
+  const elMessage = document.getElementById("message");
+  const elOshicon = document.getElementById("oshicon");
+  const elTaskList= document.getElementById("taskList");
+  const elTaskStat= document.getElementById("taskStat");
+  const elRingFg  = document.getElementById("ringFg");
+  const elBalance = document.getElementById("balanceText");
+  const elGoal    = document.getElementById("goalText");
+  const btnDeposit= document.getElementById("btnDeposit");
+  const btnEdit   = document.getElementById("btnEdit");
+  const btnAddTask= document.getElementById("btnAddTask");
+
+  // photo
   const imgInput     = document.getElementById("imgInput");
   const btnChangeImg = document.getElementById("btnChangeImg");
   const oshiImg      = document.getElementById("oshiImg");
   const photoArea    = document.getElementById("photoArea");
 
-  // 初期画像（プレースホルダー）
+  // ---- Init basic header/theme ----
+  document.body.dataset.theme = state.theme;
+  elToday.textContent = new Date().toLocaleDateString();
+
+  // ---- Placeholder image ----
   const placeholder =
     "data:image/svg+xml;charset=UTF-8," +
     encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'>
@@ -18,24 +76,120 @@ document.addEventListener("DOMContentLoaded", () => {
         font-family='Arial' font-size='48' fill='#e74694'>推し写真を追加してね 📷</text>
     </svg>`);
 
-  // 既存 state がある前提：なければ最低限のものを用意
-  const KEY = "oshiDash.miniState.v2";
-  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } }
-  function save(s){ try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){ console.error(e); alert("保存に失敗（容量超過かも）"); } }
-  let state = load();
-  if (!state.img) state.img = null;
   oshiImg.src = state.img || placeholder;
 
-  // label 経由 or エリア全体のクリックで input を開く（どっちも対応）
-  function openPicker() {
-    if (!imgInput) return;
-    // 一部ブラウザはプログラム起動を制限→label を使っているので基本OK
-    imgInput.click();
+  // ---- Renderers ----
+  function renderHeader() {
+    elMessage.textContent = state.message;
+    elOshicon.textContent = state.oshiName?.charAt(0) || "◯";
   }
-  if (btnChangeImg) btnChangeImg.addEventListener("click", openPicker);
-  if (photoArea)    photoArea.addEventListener("click", openPicker);
 
-  // リサイズして保存（容量対策）
+  function renderRing() {
+    const r = 70;                 // <circle r="70"> と一致させる
+    const c = 2 * Math.PI * r;    // 円周長
+
+    const goal = Math.max(1, state.goal || 1);
+    const pct  = Math.max(0, Math.min(1, state.balance / goal));
+
+    // dashoffset方式：残りをoffsetに
+    elRingFg.style.strokeDasharray  = String(c);
+    elRingFg.style.strokeDashoffset = String(c * (1 - pct));
+
+    elBalance.textContent = `${state.balance.toLocaleString()}円`;
+    elGoal.textContent    = `/ ${goal.toLocaleString()}円`;
+  }
+
+  function renderTasks() {
+    elTaskList.innerHTML = "";
+    state.tasks.forEach(t => {
+      const li = document.createElement("li");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = t.done;
+      cb.addEventListener("change", () => {
+        t.done = !t.done;
+        save(state);
+        renderTasks();
+      });
+
+      const span = document.createElement("span");
+      span.className = "task-title" + (t.done ? " task-done" : "");
+      span.textContent = t.title;
+
+      const del = document.createElement("button");
+      del.className = "task-del";
+      del.textContent = "削除";
+      del.addEventListener("click", () => {
+        state.tasks = state.tasks.filter(x => x.id !== t.id);
+        save(state);
+        renderTasks();
+      });
+
+      li.append(cb, span, del);
+      elTaskList.appendChild(li);
+    });
+
+    const done = state.tasks.filter(t => t.done).length;
+    elTaskStat.textContent = `${done}/${state.tasks.length} 完了`;
+  }
+
+  // ---- First render ----
+  renderHeader();
+  renderRing();
+  renderTasks();
+
+  // ---- Theme dots ----
+  document.querySelectorAll(".dot").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const theme = btn.dataset.theme;
+      document.body.dataset.theme = theme;
+      state.theme = theme;
+      save(state);
+    });
+  });
+
+  // ---- Actions: savings & edit ----
+  btnDeposit?.addEventListener("click", () => {
+    const yen = prompt("いくら貯金する？（円）", "500");
+    if (!yen) return;
+    const add = Math.max(0, Math.floor(Number(yen)) || 0);
+    state.balance += add;
+    save(state);
+    renderRing();
+  });
+
+  btnEdit?.addEventListener("click", () => {
+    const name = prompt("推しの呼び名", state.oshiName);
+    if (name !== null) state.oshiName = name || state.oshiName;
+
+    const msg = prompt("メッセージ", state.message);
+    if (msg !== null) state.message = msg || state.message;
+
+    const g = prompt("目標金額（円）", String(state.goal));
+    if (g !== null) state.goal = Math.max(1, Math.floor(Number(g) || state.goal));
+
+    save(state);
+    renderHeader();
+    renderRing();
+  });
+
+  // ---- Actions: tasks ----
+  btnAddTask?.addEventListener("click", () => {
+    const title = prompt("新しいタスク内容は？", "推し配信をチェック");
+    if (!title) return;
+    state.tasks.unshift({ id: crypto.randomUUID(), title, done: false });
+    save(state);
+    renderTasks();
+  });
+
+  // ---- Photo upload (works via label or area click) ----
+  function openPicker() {
+    if (imgInput) imgInput.click();
+  }
+  btnChangeImg?.addEventListener("click", openPicker);
+  photoArea?.addEventListener("click", openPicker);
+
   imgInput?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -46,12 +200,13 @@ document.addEventListener("DOMContentLoaded", () => {
       save(state);
     } catch (err) {
       console.error(err);
-      alert("画像の読み込みに失敗しました。別の画像で試してください。");
+      alert("画像の読み込みに失敗しました。別の画像で試してね。");
     } finally {
       imgInput.value = ""; // 同じファイル再選択を許可
     }
   });
 
+  // 画像をリサイズしてDataURLにする（容量対策）
   function resizeImageToDataURL(file, maxSize = 1200, quality = 0.85) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -67,7 +222,8 @@ document.addEventListener("DOMContentLoaded", () => {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        const out = canvas.toDataURL("image/jpeg", quality);
+        resolve(out);
       };
       img.onerror = reject;
       fr.readAsDataURL(file);

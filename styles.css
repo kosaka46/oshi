@@ -281,3 +281,9 @@ html, body {
   font-size: 12px;
   margin-top: 10px;
 }
+
+/* クリックできるようにポインタ表示 */
+.oshi-photo { cursor: pointer; }
+.oshi-photo * { pointer-events: none; } /* 子要素のイベントは親に通す */
+.change-photo-btn { pointer-events: auto; } /* ボタン(label)はクリック可 */
+

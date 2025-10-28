@@ -1,74 +1,75 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>推し活ダッシュボード - OshiDash</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>推し活ダッシュボード MVP</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-theme="pink">
+  <div class="container">
 
-    <div class="container">
-        <header class="header">
-            <div id="oshicon" class="oshicon"></div>
-            <div class="head-text">
-                <div id="today" class="date"></div>
-                <div id="message" class="message"></div>
-            </div>
-            <div class="theme-dots">
-                <button class="dot dot-pink" data-theme="pink"></button>
-                <button class="dot dot-sky" data-theme="sky"></button>
-                <button class="dot dot-violet" data-theme="violet"></button>
-                <button class="dot dot-emerald" data-theme="emerald"></button>
-            </div>
-        </header>
-
-        <div id="photoArea" class="oshi-photo">
-            <img id="oshiImg" src="" alt="推しの写真">
-            <input type="file" id="imgInput" accept="image/*" style="display:none;">
-        </div>
-
-        <div class="card">
-            <p class="section-title">推し貯金目標</p>
-            
-            <div class="row-between" style="margin-bottom: 16px;">
-                <svg viewBox="0 0 160 160" width="160" height="160" class="ring">
-                    <circle r="70" cx="80" cy="80" class="ring-bg"></circle>
-                    <circle r="70" cx="80" cy="80" id="ringFg" class="ring-fg"></circle>
-                    <text x="80" y="70" text-anchor="middle" class="ring-main">
-                        <tspan id="balanceText" dy="0">0円</tspan>
-                    </text>
-                    <text x="80" y="94" text-anchor="middle" class="ring-sub">
-                        <tspan id="goalText" dy="0">/ 0円</tspan>
-                    </text>
-                </svg>
-                
-                <div class="grid2" style="width: 55%; align-self: center;">
-                    <button id="btnDeposit" class="btn btn-accent full">貯金追加</button>
-                    <button id="btnEdit" class="btn btn-outline full">情報編集</button>
-                    <div class="muted" style="grid-column: 1 / 3; text-align: center; margin-top: 8px;">
-                        ※ローカルブラウザに自動保存されます
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="row-between">
-                <p class="section-title">推し活ToDo</p>
-                <button id="btnAddTask" class="btn btn-outline" style="padding: 6px 10px; font-size: 14px;">+ タスク追加</button>
-            </div>
-            
-            <ul id="taskList" class="tasks">
-                </ul>
-
-            <div id="taskStat" class="theme-bg" style="font-size: 14px;">0/0 完了</div>
-        </div>
-
+    <!-- 推し写真 -->
+    <div class="oshi-photo">
+      <!-- 初期画像は埋め込みプレースホルダー（default.jpg不要） -->
+      <img id="oshiImg" alt="推し写真" />
+      <input type="file" id="imgInput" accept="image/*" hidden />
+      <button class="change-photo-btn" id="btnChangeImg">📷 写真を変更</button>
     </div>
 
-    <script src="script.js"></script>
+    <!-- ヘッダー -->
+    <header class="header">
+      <div class="oshicon" id="oshicon">◯</div>
+      <div class="head-text">
+        <div class="date" id="today"></div>
+        <div class="message" id="message">◯◯ちゃんが見てるよ👀</div>
+      </div>
+      <div class="theme-dots">
+        <button class="dot dot-pink"   data-theme="pink"></button>
+        <button class="dot dot-sky"    data-theme="sky"></button>
+        <button class="dot dot-violet" data-theme="violet"></button>
+        <button class="dot dot-emerald"data-theme="emerald"></button>
+      </div>
+    </header>
 
+    <!-- 貯金カード -->
+    <section class="card">
+      <h3 class="section-title">貯金の進捗</h3>
+      <div class="ring-wrap theme-bg">
+        <svg id="ring" class="ring" width="160" height="160" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="70" class="ring-bg"></circle>
+          <circle cx="80" cy="80" r="70" class="ring-fg" id="ringFg"></circle>
+          <text x="80" y="74" text-anchor="middle" class="ring-main" id="balanceText">0円</text>
+          <text x="80" y="98" text-anchor="middle" class="ring-sub" id="goalText">/ 10,000円</text>
+        </svg>
+      </div>
+      <div class="grid2">
+        <button class="btn btn-primary" id="btnDeposit">貯金する ＋</button>
+        <button class="btn btn-outline" id="btnEdit">目標・文言を編集</button>
+      </div>
+    </section>
+
+    <!-- タスクカード -->
+    <section class="card">
+      <div class="row-between">
+        <h3 class="section-title">今日のタスク</h3>
+        <div class="muted" id="taskStat">0/0 完了</div>
+      </div>
+      <ul class="tasks" id="taskList"></ul>
+      <button class="btn btn-accent full" id="btnAddTask">タスクを追加</button>
+    </section>
+
+    <!-- ドック -->
+    <nav class="dock">
+      <button class="dock-item">🏠<span>ホーム</span></button>
+      <button class="dock-item">💰<span>貯金</span></button>
+      <button class="dock-item">✅<span>タスク</span></button>
+      <button class="dock-item">⚙️<span>設定</span></button>
+    </nav>
+
+    <div class="ver">v0.2 – 写真リサイズ保存対応</div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
